@@ -16,11 +16,12 @@ const HabitModal = ({
   const [frequency, setFrequency] = useState('daily');
 
   useEffect(() => {
-    if (habit) {
-      setName(habit.name);
-      setDescription(habit.description);
-      setGoalStreak(habit.goalStreak);
-      setFrequency(habit.frequency);
+    // Treat only habits with a real `_id` as existing edits.
+    if (habit && habit._id) {
+      setName(habit.name || '');
+      setDescription(habit.description || '');
+      setGoalStreak(habit.goalStreak || 21);
+      setFrequency(habit.frequency || 'daily');
     } else {
       setName('');
       setDescription('');
@@ -33,7 +34,7 @@ const HabitModal = ({
     if (!name.trim()) return;
     
     const habitData = {
-      id: habit ? habit.id : Date.now(),
+      _id: habit ? habit._id : undefined,
       name: name.trim(),
       description: description.trim(),
       goalStreak,
@@ -44,7 +45,9 @@ const HabitModal = ({
       createdAt: habit ? habit.createdAt : new Date().toISOString(),
       lastCompleted: habit ? habit.lastCompleted : null
     };
-    
+    // debug: log payload to help trace update/create
+    // eslint-disable-next-line no-console
+    console.log('[HabitModal] saving habitData:', habitData);
     onSave(habitData);
   };
 
@@ -79,6 +82,12 @@ const HabitModal = ({
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleSave();
+                  }
+                }}
                 placeholder="e.g., Morning Meditation"
                 className="w-full"
               />
@@ -94,6 +103,13 @@ const HabitModal = ({
                 placeholder="Describe your habit..."
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                onKeyDown={(e) => {
+                  // allow newline with Enter, but submit on Ctrl/Cmd+Enter
+                  if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey))) {
+                    e.preventDefault();
+                    handleSave();
+                  }
+                }}
               />
             </div>
             

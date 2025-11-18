@@ -55,7 +55,7 @@ const HabitCard = ({
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => onDelete(habit.id)}
+                onClick={() => onDelete(habit._id)}
                 className="p-1 h-8 w-8 text-red-500 hover:text-red-700"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -88,7 +88,7 @@ const HabitCard = ({
             <Button
               variant={habit.completedToday ? 'outline' : 'default'}
               size="sm"
-              onClick={() => onToggleComplete(habit.id)}
+              onClick={() => onToggleComplete(habit._id)}
               className={habit.completedToday ? 'border-emerald-300 text-emerald-700' : ''}
             >
               {habit.completedToday ? 'Undo' : 'Mark Complete'}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useHabits } from '../hooks/use-habits';
 import HabitCard from '../components/habits/habit-card';
@@ -17,6 +17,35 @@ const Habits = () => {
     startEditing,
     cancelEditing
   } = useHabits();
+  const [quickName, setQuickName] = useState('');
+  const [quickDesc, setQuickDesc] = useState('');
+  const [quickFreq, setQuickFreq] = useState('daily');
+  const [quickGoal, setQuickGoal] = useState(21);
+  const [creating, setCreating] = useState(false);
+
+  const handleQuickCreate = async () => {
+    if (!quickName.trim()) return;
+    setCreating(true);
+    try {
+      await saveHabit({
+        name: quickName.trim(),
+        description: quickDesc.trim(),
+        frequency: quickFreq,
+        goalStreak: quickGoal,
+        currentStreak: 0,
+        bestStreak: 0,
+        completedToday: false
+      });
+      setQuickName('');
+      setQuickDesc('');
+      setQuickFreq('daily');
+      setQuickGoal(21);
+    } catch (err) {
+      console.error('Quick create failed', err);
+    } finally {
+      setCreating(false);
+    }
+  };
   
   const completedToday = habits.filter(h => h.completedToday).length;
   const totalHabits = habits.length;
@@ -38,12 +67,36 @@ const Habits = () => {
           <h1 className="text-3xl font-bold text-gray-800">Habit Tracker</h1>
           <p className="text-gray-600 mt-2">Build good habits and track your progress</p>
         </div>
-        <Button 
-          onClick={() => startEditing(null)}
-          className="mt-4 md:mt-0"
-        >
-          <Plus size={16} className="mr-1" /> New Habit
-        </Button>
+        <div className="flex items-center space-x-3 mt-4 md:mt-0">
+          <div className="flex items-center space-x-2">
+            <input
+              value={quickName}
+              onChange={(e) => setQuickName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleQuickCreate(); } }}
+              placeholder="Quick add habit..."
+              className="px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <select
+              value={quickFreq}
+              onChange={(e) => setQuickFreq(e.target.value)}
+              className="px-2 py-2 border border-gray-300 rounded-xl"
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="weekdays">Weekdays</option>
+              <option value="weekends">Weekends</option>
+            </select>
+            <Button onClick={handleQuickCreate} disabled={creating}>
+              <Plus size={16} className="mr-1" /> Add
+            </Button>
+          </div>
+          <Button 
+            onClick={() => startEditing({})}
+            className="md:ml-2"
+          >
+            <Plus size={16} className="mr-1" /> New Habit
+          </Button>
+        </div>
       </motion.div>
       
       <motion.div
@@ -95,7 +148,7 @@ const Habits = () => {
         </Card>
       </motion.div>
       
-      {habits.length === 0 ? (
+          {habits.length === 0 ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -109,7 +162,7 @@ const Habits = () => {
           <p className="text-gray-500 mb-4">
             Create your first habit to start tracking your progress.
           </p>
-          <Button onClick={() => startEditing(null)}>
+          <Button onClick={() => startEditing({})}>
             <Plus size={16} className="mr-1" /> Create Habit
           </Button>
         </motion.div>
@@ -123,7 +176,7 @@ const Habits = () => {
           <AnimatePresence>
             {habits.map((habit) => (
               <HabitCard
-                key={habit.id}
+                key={habit._id}
                 habit={habit}
                 onToggleComplete={toggleHabitComplete}
                 onEdit={startEditing}
