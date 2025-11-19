@@ -5,6 +5,7 @@ import { connectDB } from "./config/db.js";
 import habitRoutes from "./routes/habitRoutes.js";
 import noteRoutes from "./routes/noteRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import path from "path";
 import fs from "fs";
 
@@ -15,6 +16,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Temporary request logger for debugging incoming requests (remove in production)
+app.use((req, res, next) => {
+	try {
+		const bodyPreview = req.body && Object.keys(req.body).length ? JSON.stringify(req.body) : '{}';
+		console.log(`[req] ${req.method} ${req.originalUrl} body=${bodyPreview}`);
+	} catch (e) {
+		console.log('[req] could not serialize body');
+	}
+	next();
+});
+
 // Ensure uploads directory exists and serve it statically
 const uploadsDir = path.resolve('uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
@@ -23,6 +35,7 @@ app.use('/uploads', express.static(uploadsDir));
 app.use("/api/habits", habitRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use("/api/auth", authRoutes);
 
 // Server-Sent Events endpoint for sessions real-time updates
 app.locals.sseClients = [];

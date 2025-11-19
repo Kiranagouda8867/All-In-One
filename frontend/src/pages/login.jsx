@@ -12,9 +12,18 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // local stubbed login (auth removed) — simulates async login
+  const API_BASE = 'http://localhost:5000/api/auth';
+
   const login = async (email, password) => {
-    return new Promise((resolve) => setTimeout(() => resolve({ email }), 200));
+    const res = await fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw data;
+    return data;
   };
   const navigate = useNavigate();
 
@@ -32,7 +41,37 @@ const Login = () => {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError('Failed to log in. Please check your credentials.');
+      // Normalize error message from server or thrown object
+      const rawMsg = err && (err.message || err.error || err.msg) || (typeof err === 'string' ? err : '');
+      const msg = String(rawMsg || '').toLowerCase();
+
+      // If server indicates invalid credentials / no user, offer to create account
+      if (msg.includes('invalid') || msg.includes('not found') || msg.includes('no account')) {
+        const create = window.confirm('No account found for this email. Create one now?');
+        if (create) {
+          // derive a simple name from email
+          const name = email.split('@')[0] || email;
+          try {
+            const res = await fetch(`${API_BASE}/register`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, email, password }),
+            });
+            const reg = await res.json();
+            if (!res.ok) throw reg;
+            // After successful registration, login automatically
+            await login(email, password);
+            navigate('/dashboard');
+            return;
+          } catch (re) {
+            const rmsg = re && (re.message || re.error || re.msg) || (typeof re === 'string' ? re : 'Failed to create account');
+            setError(rmsg);
+            return;
+          }
+        }
+      }
+
+      setError(rawMsg || 'Failed to log in. Please check your credentials.');
     } finally {
       setLoading(false);
     }

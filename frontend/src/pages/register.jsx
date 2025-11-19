@@ -15,9 +15,17 @@ const Register = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // local stubbed login (auth removed) — simulates async login after registration
+  const API_BASE = 'http://localhost:5000/api/auth';
+
   const login = async (email, password) => {
-    return new Promise((resolve) => setTimeout(() => resolve({ email }), 200));
+    const res = await fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw data;
+    return data;
   };
   const navigate = useNavigate();
 
@@ -42,12 +50,23 @@ const Register = () => {
     try {
       setError('');
       setLoading(true);
-      // In a real app, this would be an API call to register
-      // For now, we'll just log the user in
+      // call backend register
+      const res = await fetch(`${API_BASE}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw data;
+
+      // auto-login after successful registration
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError('Failed to create an account. Please try again.');
+      // prefer server-provided message when available
+      const serverMsg = err && (err.message || err.error || err.msg) || (typeof err === 'string' ? err : 'Failed to create an account. Please try again.');
+      setError(serverMsg);
     } finally {
       setLoading(false);
     }
