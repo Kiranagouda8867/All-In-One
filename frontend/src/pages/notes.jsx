@@ -36,8 +36,8 @@ const Notes = () => {
           <h1 className="text-3xl font-bold text-gray-800">Notes</h1>
           <p className="text-gray-600 mt-2">Capture and organize your study notes</p>
         </div>
-        <Button 
-          onClick={() => startEditing(null)}
+          <Button 
+          onClick={() => startEditing({})}
           className="mt-4 md:mt-0"
         >
           <Plus size={16} className="mr-1" /> New Note
@@ -79,7 +79,7 @@ const Notes = () => {
               : 'Create your first note to get started.'}
           </p>
           {!searchTerm && (
-            <Button onClick={() => startEditing(null)}>
+            <Button onClick={() => startEditing({})}>
               <Plus size={16} className="mr-1" /> Create Note
             </Button>
           )}
@@ -94,7 +94,7 @@ const Notes = () => {
           <AnimatePresence>
             {filteredNotes.map((note) => (
               <NoteCard
-                key={note.id}
+                key={note._id}
                 note={note}
                 onEdit={startEditing}
                 onDelete={deleteNote}

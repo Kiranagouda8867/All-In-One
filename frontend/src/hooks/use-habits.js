@@ -6,6 +6,7 @@ export const useHabits = () => {
   const userId = "guest";
 
   const [habits, setHabits] = useState([]);
+  const [togglingIds, setTogglingIds] = useState([]);
   const [editingHabit, setEditingHabit] = useState(null);
 
   // Load habits from backend
@@ -60,19 +61,55 @@ export const useHabits = () => {
   };
 
   const toggleHabitComplete = async (id) => {
+    // Optimistic update: flip completedToday and adjust streaks immediately
+    // Keep a snapshot to rollback if server fails
+    const prevSnapshot = habits;
+    // mark as toggling
+    setTogglingIds((prev) => [...prev, id]);
+    setHabits((prev) => prev.map((h) => {
+      if (h._id !== id) return h;
+      const copy = { ...h };
+      if (!copy.completedToday) {
+        // marking complete
+        // if lastCompleted is yesterday -> +1, else if null or not yesterday -> set to 1
+        const last = copy.lastCompleted ? new Date(copy.lastCompleted) : null;
+        const today = new Date();
+        const isYesterday = last && (new Date(last.getFullYear(), last.getMonth(), last.getDate()).getTime() === new Date(today.getFullYear(), today.getMonth(), today.getDate()-1).getTime());
+        const isSameDay = last && (new Date(last.getFullYear(), last.getMonth(), last.getDate()).getTime() === new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime());
+        if (last) {
+          if (isYesterday) copy.currentStreak = (copy.currentStreak || 0) + 1;
+          else if (!isSameDay) copy.currentStreak = 1;
+          else copy.currentStreak = (copy.currentStreak || 0) + 1; // re-mark same day
+        } else {
+          copy.currentStreak = 1;
+        }
+        copy.bestStreak = Math.max(copy.bestStreak || 0, copy.currentStreak || 0);
+        copy.completedToday = true;
+        copy.lastCompleted = new Date().toISOString();
+      } else {
+        // unmark
+        copy.completedToday = false;
+        copy.currentStreak = Math.max(0, (copy.currentStreak || 0) - 1);
+      }
+      return copy;
+    }));
+
     try {
-      // debug: log toggle attempt
+      // send request and reconcile with server result
       // eslint-disable-next-line no-console
       console.log('[useHabits] toggleHabitComplete called, id=', id);
       const res = await axios.put(`${API_URL}/${id}/toggle`);
-      // debug: log toggle result
       // eslint-disable-next-line no-console
       console.log('[useHabits] toggleHabitComplete result:', res.data);
       setHabits((prev) => prev.map((h) => (h._id === id ? res.data : h)));
       return res.data;
     } catch (err) {
-      console.error("Toggle habit failed", err);
+      // rollback to previous snapshot on error
+      console.error("Toggle habit failed, rolling back", err);
+      setHabits(prevSnapshot);
       throw err;
+    } finally {
+      setTogglingIds((prev) => prev.filter((i) => i !== id));
     }
   };
 
@@ -86,6 +123,7 @@ export const useHabits = () => {
 
   return {
     habits,
+    togglingIds,
     editingHabit,
     saveHabit,
     deleteHabit,

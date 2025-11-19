@@ -14,13 +14,16 @@ const NoteEditor = ({
   const [content, setContent] = useState('');
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
+  const [files, setFiles] = useState([]);
 
   useEffect(() => {
-    if (note) {
-      setTitle(note.title);
-      setContent(note.content);
+    // If editing an existing note (note provided and not a new-marker), populate fields
+    if (note && !note.__isNew) {
+      setTitle(note.title || '');
+      setContent(note.content || '');
       setTags(note.tags || []);
     } else {
+      // Creating new note: clear fields
       setTitle('');
       setContent('');
       setTags([]);
@@ -29,16 +32,22 @@ const NoteEditor = ({
 
   const handleSave = () => {
     if (!title.trim()) return;
-    
+
     const noteData = {
-      id: note ? note.id : Date.now(),
       title: title.trim(),
       content: content.trim(),
       tags,
-      createdAt: note ? note.createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      subject: note && note.subject ? note.subject : ''
     };
-    
+
+    // If editing an existing note, include its _id so the hook performs an update
+    if (note && note._id) {
+      noteData._id = note._id;
+    }
+
+    // Attach selected files (File objects) so hook can build FormData
+    if (files.length) noteData.files = files;
+
     onSave(noteData);
   };
 
@@ -52,6 +61,17 @@ const NoteEditor = ({
 
   const handleRemoveTag = (tagToRemove) => {
     setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleFileChange = (e) => {
+    const selected = Array.from(e.target.files || []);
+    setFiles((prev) => [...prev, ...selected]);
+    // reset input to allow selecting same file again
+    e.target.value = null;
+  };
+
+  const handleRemoveFile = (idx) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -139,6 +159,18 @@ const NoteEditor = ({
                   <Tag size={16} />
                 </Button>
               </form>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Attachments</label>
+              <input type="file" multiple onChange={handleFileChange} className="mb-2" />
+              <div className="flex flex-col gap-2">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded">
+                    <div className="text-sm">{f.name} <span className="text-xs text-gray-400">({Math.round(f.size/1024)} KB)</span></div>
+                    <button type="button" onClick={() => handleRemoveFile(i)} className="text-red-500">Remove</button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </Card.Content>

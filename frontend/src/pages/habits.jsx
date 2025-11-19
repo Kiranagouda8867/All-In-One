@@ -10,6 +10,7 @@ import { Plus, Target, TrendingUp, Calendar } from 'lucide-react';
 const Habits = () => {
   const {
     habits,
+    togglingIds,
     editingHabit,
     saveHabit,
     deleteHabit,
@@ -17,6 +18,22 @@ const Habits = () => {
     startEditing,
     cancelEditing
   } = useHabits();
+  const [toast, setToast] = useState({ msg: '', visible: false });
+
+  const showToast = (msg, ms = 2500) => {
+    setToast({ msg, visible: true });
+    setTimeout(() => setToast({ msg: '', visible: false }), ms);
+  };
+
+  const handleToggle = async (id) => {
+    try {
+      await toggleHabitComplete(id);
+      showToast('Habit updated');
+    } catch (err) {
+      console.error('Toggle failed', err);
+      showToast('Update failed');
+    }
+  };
   const [quickName, setQuickName] = useState('');
   const [quickDesc, setQuickDesc] = useState('');
   const [quickFreq, setQuickFreq] = useState('daily');
@@ -51,12 +68,16 @@ const Habits = () => {
   const totalHabits = habits.length;
   const completionPercentage = totalHabits > 0 ? Math.round((completedToday / totalHabits) * 100) : 0;
   
-  // Calculate total current streaks
-  const totalCurrentStreak = habits.reduce((sum, habit) => sum + habit.currentStreak, 0);
   const totalBestStreak = habits.reduce((sum, habit) => sum + habit.bestStreak, 0);
   
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Toast */}
+      {toast.visible && (
+        <div className="fixed top-5 right-5 z-50">
+          <div className="bg-gray-900 text-white px-4 py-2 rounded shadow">{toast.msg}</div>
+        </div>
+      )}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -103,7 +124,7 @@ const Habits = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
+        className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
       >
         <Card>
           <Card.Content className="flex items-center">
@@ -122,19 +143,7 @@ const Habits = () => {
             </div>
           </Card.Content>
         </Card>
-        
-        <Card>
-          <Card.Content className="flex items-center">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center">
-              <TrendingUp className="text-white" size={24} />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm text-gray-500">Current Streaks</p>
-              <p className="text-2xl font-bold text-gray-800">{totalCurrentStreak} days</p>
-            </div>
-          </Card.Content>
-        </Card>
-        
+
         <Card>
           <Card.Content className="flex items-center">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center">
@@ -178,9 +187,10 @@ const Habits = () => {
               <HabitCard
                 key={habit._id}
                 habit={habit}
-                onToggleComplete={toggleHabitComplete}
+                onToggleComplete={handleToggle}
                 onEdit={startEditing}
                 onDelete={deleteHabit}
+                isToggling={togglingIds.includes(habit._id)}
               />
             ))}
           </AnimatePresence>

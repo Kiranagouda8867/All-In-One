@@ -103,10 +103,15 @@ export const toggleHabit = async (req, res) => {
     if (!habit.completedToday) {
       // Mark as completed
       if (habit.lastCompleted) {
-        if (isYesterday(new Date(habit.lastCompleted))) {
+        const last = new Date(habit.lastCompleted);
+        if (isYesterday(last)) {
           habit.currentStreak += 1;
-        } else if (!isSameDay(new Date(habit.lastCompleted), today)) {
+        } else if (!isSameDay(last, today)) {
           habit.currentStreak = 1;
+        } else {
+          // lastCompleted is same day (user previously marked today then undone)
+          // Re-marking should restore/increment the streak by 1
+          habit.currentStreak += 1;
         }
       } else {
         habit.currentStreak = 1;

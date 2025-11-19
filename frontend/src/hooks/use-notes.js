@@ -1,83 +1,101 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import axios from "axios";
 
 export const useNotes = () => {
+  const API_URL = "http://localhost:5000/api/notes";
+  const userId = "guest";
+
   const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [editingNote, setEditingNote] = useState(null);
-  
-  // Load notes from localStorage on mount
+
+  // Load notes from backend
   useEffect(() => {
-    const savedNotes = localStorage.getItem('studysphere-notes');
-    if (savedNotes) {
-      try {
-        setNotes(JSON.parse(savedNotes));
-      } catch (e) {
-        console.error('Failed to parse notes from localStorage', e);
-      }
-    } else {
-      // Initialize with mock data
-      setNotes([
-        {
-          id: 1,
-          title: 'Physics Lecture Notes',
-          content: 'Today we covered quantum mechanics and the principles of wave-particle duality. Key concepts include the Heisenberg uncertainty principle and Schrödinger equation.',
-          tags: ['Physics', 'Quantum Mechanics'],
-          createdAt: '2023-10-15T10:30:00Z',
-          updatedAt: '2023-10-15T10:30:00Z'
-        },
-        {
-          id: 2,
-          title: 'Calculus Study Guide',
-          content: 'Derivatives and integrals are fundamental concepts in calculus. Remember the chain rule for derivatives and integration by parts for complex integrals.',
-          tags: ['Mathematics', 'Calculus'],
-          createdAt: '2023-10-14T15:45:00Z',
-          updatedAt: '2023-10-14T15:45:00Z'
-        },
-        {
-          id: 3,
-          title: 'Computer Science Algorithms',
-          content: 'Sorting algorithms: Bubble sort has O(n²) time complexity, while merge sort and quick sort have O(n log n) average time complexity.',
-          tags: ['Computer Science', 'Algorithms'],
-          createdAt: '2023-10-13T09:15:00Z',
-          updatedAt: '2023-10-13T09:15:00Z'
-        }
-      ]);
-    }
+    axios
+      .get(`${API_URL}?userId=${userId}`)
+      .then((res) => {
+        setNotes(res.data);
+        setLoading(false);
+      })
+      .catch((err) => console.error(err));
   }, []);
-  
-  // Save notes to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('studysphere-notes', JSON.stringify(notes));
-  }, [notes]);
-  
-  const saveNote = (note) => {
-    if (note.id) {
-      // Update existing note
-      setNotes(notes.map(n => n.id === note.id ? note : n));
-    } else {
-      // Add new note
-      setNotes([...notes, { ...note, id: Date.now() }]);
+
+  // Save note: create or update depending on presence of _id
+  const saveNote = async (noteData) => {
+    try {
+      // If files are present, send as multipart/form-data
+      const hasFiles = noteData.files && noteData.files.length;
+
+      if (noteData._id) {
+        if (hasFiles) {
+          const form = new FormData();
+          form.append('title', noteData.title || '');
+          form.append('content', noteData.content || '');
+          form.append('subject', noteData.subject || 'General');
+          form.append('userId', userId);
+          form.append('tags', JSON.stringify(noteData.tags || []));
+          noteData.files.forEach((f) => form.append('files', f));
+          const res = await axios.put(`${API_URL}/${noteData._id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+          setNotes((prev) => prev.map((n) => (n._id === noteData._id ? res.data : n)));
+          setEditingNote(null);
+          return res.data;
+        }
+
+        const res = await axios.put(`${API_URL}/${noteData._id}`, noteData);
+        setNotes((prev) => prev.map((n) => (n._id === noteData._id ? res.data : n)));
+        setEditingNote(null);
+        return res.data;
+      }
+
+      if (hasFiles) {
+        const form = new FormData();
+        form.append('title', noteData.title || '');
+        form.append('content', noteData.content || '');
+        form.append('subject', noteData.subject || 'General');
+        form.append('userId', userId);
+        form.append('tags', JSON.stringify(noteData.tags || []));
+        noteData.files.forEach((f) => form.append('files', f));
+        const res = await axios.post(API_URL, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+        setNotes((prev) => [res.data, ...prev]);
+        setEditingNote(null);
+        return res.data;
+      }
+
+      const res = await axios.post(API_URL, { ...noteData, userId, subject: noteData.subject || 'General' });
+      setNotes((prev) => [res.data, ...prev]);
+      setEditingNote(null);
+      return res.data;
+    } catch (err) {
+      console.error('Save note failed', err);
+      throw err;
     }
-    setEditingNote(null);
   };
-  
-  const deleteNote = (id) => {
-    setNotes(notes.filter(note => note.id !== id));
+
+  const deleteNote = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/${id}`);
+      setNotes((prev) => prev.filter((note) => note._id !== id));
+    } catch (err) {
+      console.error('Delete note failed', err);
+      throw err;
+    }
   };
-  
+
   const startEditing = (note) => {
+    // If called with an empty object, open editor for creating a new note
+    if (!note || Object.keys(note).length === 0) {
+      setEditingNote(null); // NoteEditor treats null as create (it clears fields)
+      // set to empty non-null marker to open modal in pages (pages call startEditing({}) )
+      // We'll use an explicit marker object
+      setEditingNote({ __isNew: true });
+      return;
+    }
     setEditingNote(note);
   };
-  
+
   const cancelEditing = () => {
     setEditingNote(null);
   };
-  
-  return {
-    notes,
-    editingNote,
-    saveNote,
-    deleteNote,
-    startEditing,
-    cancelEditing
-  };
+
+  return { notes, loading, editingNote, saveNote, deleteNote, startEditing, cancelEditing };
 };

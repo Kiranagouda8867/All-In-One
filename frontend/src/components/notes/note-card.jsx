@@ -32,18 +32,18 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
               animate={{ opacity: showActions ? 1 : 0 }}
               className="flex space-x-1"
             >
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => onEdit(note)}
-                className="p-1 h-8 w-8"
-              >
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onEdit(note)}
+                  className="p-1 h-8 w-8"
+                >
                 <Edit2 size={16} />
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => onDelete(note.id)}
+                  onClick={() => onDelete(note._id)}
                 className="p-1 h-8 w-8 text-red-500 hover:text-red-700"
               >
                 <Trash2 size={16} />
@@ -66,6 +66,29 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
               </span>
             ))}
           </div>
+          {note.attachments && note.attachments.length > 0 && (() => {
+            const base = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const resolveUrl = (a) => {
+              if (!a || !a.url) return '';
+              if (a.url.startsWith('http')) return a.url;
+              return `${base}${a.url}`;
+            };
+
+            return (
+              <div className="mt-2">
+                <div className="text-xs text-gray-500 mb-1">Attachments:</div>
+                <ul className="text-sm list-disc list-inside">
+                  {note.attachments.map((a, i) => (
+                    <li key={i}>
+                      <a className="text-indigo-600 hover:underline" href={resolveUrl(a)} target="_blank" rel="noreferrer">
+                        {a.originalName || a.filename}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
         </Card.Footer>
       </Card>
     </motion.div>

@@ -8,7 +8,8 @@ const HabitCard = ({
   habit, 
   onToggleComplete, 
   onEdit, 
-  onDelete 
+  onDelete,
+  isToggling = false
 }) => {
   const formatDate = (dateString) => {
     const options = { month: 'short', day: 'numeric' };
@@ -24,8 +25,11 @@ const HabitCard = ({
   };
 
   const getProgressPercentage = (streak, goal) => {
-    return Math.min(100, (streak / goal) * 100);
+    if (!goal || goal <= 0) return 0;
+    return Math.min(100, Math.round((streak / goal) * 100));
   };
+
+  const progressPercent = getProgressPercentage(habit?.currentStreak || 0, habit?.goalStreak || 0);
 
   return (
     <motion.div
@@ -90,8 +94,20 @@ const HabitCard = ({
               size="sm"
               onClick={() => onToggleComplete(habit._id)}
               className={habit.completedToday ? 'border-emerald-300 text-emerald-700' : ''}
+              disabled={isToggling}
+              aria-busy={isToggling}
             >
-              {habit.completedToday ? 'Undo' : 'Mark Complete'}
+              {isToggling ? (
+                <span className="inline-flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                  Saving...
+                </span>
+              ) : (
+                habit.completedToday ? 'Undo' : 'Mark Complete'
+              )}
             </Button>
           </div>
           
@@ -100,22 +116,22 @@ const HabitCard = ({
               <div className="flex justify-between mb-1">
                 <span className="text-sm font-medium text-gray-700 flex items-center">
                   <TrendingUp className="mr-1 text-emerald-500" size={14} />
-                  Current Streak
+                  Progress
                 </span>
                 <span className={`text-sm font-bold ${getStreakColor(habit.currentStreak)}`}>
-                  {habit.currentStreak} days
+                  {habit.currentStreak}/{habit.goalStreak || 0} days
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <motion.div 
                   className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2 rounded-full"
                   initial={{ width: 0 }}
-                  animate={{ width: `${getProgressPercentage(habit.currentStreak, habit.goalStreak)}%` }}
+                  animate={{ width: `${progressPercent}%` }}
                   transition={{ duration: 0.5 }}
                 ></motion.div>
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                Goal: {habit.goalStreak} days
+                Goal: {habit.goalStreak || 0} days
               </p>
             </div>
             
@@ -123,7 +139,7 @@ const HabitCard = ({
               <div className="flex justify-between mb-1">
                 <span className="text-sm font-medium text-gray-700 flex items-center">
                   <Calendar className="mr-1 text-indigo-500" size={14} />
-                  Best Streak
+                  Best Streak (longest)
                 </span>
                 <span className="text-sm font-bold text-indigo-600">
                   {habit.bestStreak} days

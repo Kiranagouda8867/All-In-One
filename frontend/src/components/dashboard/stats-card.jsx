@@ -2,6 +2,8 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Card from '../ui/card';
 import { Clock, CheckSquare, BookOpen, Calendar } from 'lucide-react';
+import { useHabits } from '../../hooks/use-habits';
+import { useNotes } from '../../hooks/use-notes';
 
 const StatsCard = ({ title, value, icon: Icon, color, delay = 0 }) => {
   const colorClasses = {
@@ -33,6 +35,13 @@ const StatsCard = ({ title, value, icon: Icon, color, delay = 0 }) => {
 };
 
 const StatsGrid = () => {
+  const { habits } = useHabits();
+  const { notes } = useNotes();
+
+  const completedToday = habits.filter(h => h.completedToday).length;
+  const totalHabits = habits.length;
+  const notesCount = notes.length;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       <StatsCard 
@@ -44,14 +53,14 @@ const StatsGrid = () => {
       />
       <StatsCard 
         title="Habits Completed" 
-        value="4/6" 
+        value={`${completedToday}/${totalHabits}`} 
         icon={CheckSquare} 
         color="emerald" 
         delay={0.2} 
       />
       <StatsCard 
         title="Notes Saved" 
-        value="12" 
+        value={notesCount} 
         icon={BookOpen} 
         color="purple" 
         delay={0.3} 
