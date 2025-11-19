@@ -7,6 +7,58 @@ import { Calendar, TrendingUp, BookOpen, Target, Smile, Briefcase, Clock } from 
 import { moodData } from '../utils/mood-data';
 import { careerPaths } from '../utils/career-data';
 import { Link } from 'react-router-dom';
+import useSessions from '../hooks/use-sessions';
+
+// Render the next up to 3 upcoming sessions from DB
+const StudySessionsList = () => {
+  const { sessions } = useSessions();
+
+  const now = new Date();
+  const upcoming = (sessions || [])
+    .filter(s => s.startTime && new Date(s.startTime) > now)
+    .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+    .slice(0, 3);
+
+  const formatRelativeDay = (dt) => {
+    if (!dt) return '';
+    const d = new Date(dt);
+    const today = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+    return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const badgeColors = [
+    { text: 'text-indigo-600', bg: 'bg-indigo-100' },
+    { text: 'text-emerald-600', bg: 'bg-emerald-100' },
+    { text: 'text-purple-600', bg: 'bg-purple-100' }
+  ];
+
+  if (!upcoming || upcoming.length === 0) {
+    return <div className="text-sm text-gray-500">No upcoming sessions</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {upcoming.map((s, idx) => {
+        const col = badgeColors[idx % badgeColors.length];
+        return (
+          <Link to={`/study-sessions?session=${s.id}`} key={s.id}>
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <div>
+                <p className="font-medium text-gray-800">{s.title}</p>
+                <p className="text-xs text-gray-500">{formatRelativeDay(s.startTime)}, {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+              </div>
+              <span className={`text-sm font-medium ${col.text} ${col.bg} px-2 py-1 rounded-full`}>Upcoming</span>
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+};
 
 const Dashboard = () => {
   return (
@@ -127,25 +179,8 @@ const Dashboard = () => {
               </Card.Header>
               <Card.Content>
                 <p className="text-gray-600 mb-4">Plan your study sessions and get reminders</p>
-                <div className="space-y-3">
-                  {[
-                    { title: 'Mathematics - Calculus', time: 'Today, 3:00 PM', color: 'text-blue-500' },
-                    { title: 'Physics - Quantum Mechanics', time: 'Tomorrow, 5:00 PM', color: 'text-green-500' },
-                    { title: 'Computer Science - Algorithms', time: 'Friday, 2:00 PM', color: 'text-purple-500' }
-                  ].map((session, index) => (
-                    <Link to="/study-sessions" key={index}>
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div>
-                          <p className="font-medium text-gray-800">{session.title}</p>
-                          <p className="text-xs text-gray-500">{session.time}</p>
-                        </div>
-                        <span className={`text-sm font-medium ${session.color}`}>
-                          Upcoming
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
+                {/* realtime upcoming sessions from DB */}
+                <StudySessionsList />
                 <div className="mt-4">
                   <Link to="/study-sessions">
                     <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">

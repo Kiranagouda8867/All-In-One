@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { sessionCategories, reminderOptions } from '../utils/study-session-data';
 import Card from '../components/ui/card';
 import Button from '../components/ui/button';
 import { Calendar, Clock, Plus, Trash2, CheckCircle, Bell, Edit } from 'lucide-react';
+import useSessions from '../hooks/use-sessions';
 
 const StudySessions = () => {
-  const [sessions, setSessions] = useState([]);
+  const { sessions, createSession, updateSession, deleteSession, toggleCompleted } = useSessions();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
+  const [editingReminderId, setEditingReminderId] = useState(null);
   const [newSession, setNewSession] = useState({
     title: '',
     description: '',
@@ -19,76 +22,8 @@ const StudySessions = () => {
     completed: false
   });
 
-  // Load sessions from localStorage on mount
-  useEffect(() => {
-    const savedSessions = localStorage.getItem('study-sessions');
-    if (savedSessions) {
-      try {
-        setSessions(JSON.parse(savedSessions));
-      } catch (e) {
-        console.error('Failed to parse sessions from localStorage', e);
-      }
-    } else {
-      // Initialize with mock data
-      const today = new Date();
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      setSessions([
-        {
-          id: 1,
-          title: 'Mathematics - Calculus',
-          description: 'Chapter 5: Integration techniques',
-          category: 'lecture',
-          startTime: today.toISOString().slice(0, 16),
-          duration: 90,
-          reminder: '10min',
-          completed: false
-        },
-        {
-          id: 2,
-          title: 'Physics - Quantum Mechanics',
-          description: 'Review wave-particle duality',
-          category: 'revision',
-          startTime: tomorrow.toISOString().slice(0, 16),
-          duration: 60,
-          reminder: '15min',
-          completed: false
-        }
-      ]);
-    }
-  }, []);
-
-  // Save sessions to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('study-sessions', JSON.stringify(sessions));
-  }, [sessions]);
-
+  // sessions and actions (create/update/delete/toggle) come from `useSessions` hook
   // Check for reminders every minute
-  useEffect(() => {
-    const interval = setInterval(() => {
-      checkReminders();
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, [sessions]);
-
-  const checkReminders = () => {
-    const now = new Date();
-    
-    sessions.forEach(session => {
-      if (session.completed) return;
-      
-      const sessionTime = new Date(session.startTime);
-      const reminderTime = new Date(sessionTime.getTime() - getReminderMinutes(session.reminder) * 60000);
-      
-      // Check if current time is within 1 minute of reminder time
-      if (Math.abs(now - reminderTime) < 60000) {
-        showNotification(session);
-      }
-    });
-  };
-
   const showNotification = (session) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('Study Session Reminder', {
@@ -107,30 +42,22 @@ const StudySessions = () => {
     }
   };
 
-  const getReminderMinutes = (reminderId) => {
-    const option = reminderOptions.find(opt => opt.id === reminderId);
-    return option ? option.minutes : 0;
+  const checkReminders = () => {
+    const now = new Date();
+    sessions.forEach(session => {
+      if (session.completed) return;
+      const sessionTime = new Date(session.startTime);
+      const reminderTime = new Date(sessionTime.getTime() - getReminderMinutes(session.reminder) * 60000);
+      if (Math.abs(now - reminderTime) < 60000) {
+        showNotification(session);
+      }
+    });
   };
 
-  const handleAddSession = () => {
-    if (!newSession.title || !newSession.startTime) return;
-    
-    const session = {
-      id: editingSession ? editingSession.id : Date.now(),
-      ...newSession,
-      completed: editingSession ? editingSession.completed : false
-    };
-    
-    if (editingSession) {
-      setSessions(sessions.map(s => s.id === editingSession.id ? session : s));
-    } else {
-      setSessions([...sessions, session]);
-    }
-    
-    resetForm();
-    setShowAddForm(false);
-    setEditingSession(null);
-  };
+  React.useEffect(() => {
+    const interval = setInterval(checkReminders, 60000);
+    return () => clearInterval(interval);
+  }, [sessions]);
 
   const handleEditSession = (session) => {
     setNewSession({
@@ -147,13 +74,65 @@ const StudySessions = () => {
   };
 
   const handleDeleteSession = (id) => {
-    setSessions(sessions.filter(session => session.id !== id));
+    deleteSession(id);
   };
 
   const handleToggleComplete = (id) => {
-    setSessions(sessions.map(session => 
-      session.id === id ? { ...session, completed: !session.completed } : session
-    ));
+    // delegate to hook which handles optimistic update and server persistence
+    toggleCompleted(id);
+  };
+
+  const handleAddSession = async () => {
+    try {
+      if (editingSession) {
+        // update existing
+        await updateSession(editingSession.id, {
+          title: newSession.title,
+          description: newSession.description,
+          category: newSession.category,
+          startTime: newSession.startTime,
+          duration: newSession.duration,
+          reminder: newSession.reminder,
+          completed: newSession.completed
+        });
+      } else {
+        // create new
+        await createSession({
+          title: newSession.title,
+          description: newSession.description,
+          category: newSession.category,
+          startTime: newSession.startTime,
+          duration: newSession.duration,
+          reminder: newSession.reminder,
+          completed: newSession.completed
+        });
+      }
+      // close form and reset
+      setShowAddForm(false);
+      setEditingSession(null);
+      resetForm();
+    } catch (err) {
+      console.error('Failed to save session', err);
+      // keep the form open so user can retry
+    }
+  };
+
+  const handleChangeReminder = async (sessionId, value) => {
+    try {
+      if (value === 'custom') {
+        const minutesStr = window.prompt('Enter reminder minutes before start (e.g., 20)');
+        if (!minutesStr) { setEditingReminderId(null); return; }
+        const mins = parseInt(minutesStr, 10);
+        if (isNaN(mins) || mins < 0) { setEditingReminderId(null); return; }
+        await updateSession(sessionId, { reminder: `custom:${mins}` });
+      } else {
+        await updateSession(sessionId, { reminder: value });
+      }
+    } catch (e) {
+      console.error('Failed to update reminder', e);
+    } finally {
+      setEditingReminderId(null);
+    }
   };
 
   const resetForm = () => {
@@ -322,13 +301,33 @@ const StudySessions = () => {
                   </label>
                   <select
                     value={newSession.reminder}
-                    onChange={(e) => setNewSession({...newSession, reminder: e.target.value})}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'custom') {
+                        setNewSession({...newSession, reminder: 'custom:10'});
+                      } else {
+                        setNewSession({...newSession, reminder: val});
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     {reminderOptions.map(option => (
                       <option key={option.id} value={option.id}>{option.label}</option>
                     ))}
+                    <option value="custom">Custom...</option>
                   </select>
+                  {newSession.reminder && typeof newSession.reminder === 'string' && newSession.reminder.startsWith('custom:') && (
+                    <div className="mt-2">
+                      <label className="block text-xs text-gray-600 mb-1">Minutes before</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={parseInt(newSession.reminder.split(':')[1] || '10', 10)}
+                        onChange={(e) => setNewSession({...newSession, reminder: `custom:${parseInt(e.target.value || '0', 10)}`})}
+                        className="w-32 px-2 py-1 border border-gray-300 rounded"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -417,6 +416,23 @@ const StudySessions = () => {
                           {session.description && (
                             <p className="text-sm text-gray-600 mb-3">{session.description}</p>
                           )}
+
+                          {session.relatedNotes && session.relatedNotes.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-sm font-medium text-gray-700 mb-1">Related Notes</p>
+                              <div className="flex flex-wrap gap-2">
+                                {session.relatedNotes.map(note => {
+                                  const nid = note._id || note;
+                                  const title = note.title || 'Note';
+                                  return (
+                                    <Link key={nid} to={`/notes/${nid}`} className="text-sm text-indigo-600 hover:underline">
+                                      {title}
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                           
                           <div className="space-y-2">
                             <div className="flex items-center text-sm text-gray-600">
@@ -426,7 +442,24 @@ const StudySessions = () => {
                             
                             <div className="flex items-center text-sm text-gray-600">
                               <Bell className="mr-2" size={14} />
-                              {reminderOptions.find(opt => opt.id === session.reminder)?.label}
+                              {editingReminderId === session.id ? (
+                                <select
+                                  value={session.reminder || 'none'}
+                                  onChange={(e) => handleChangeReminder(session.id, e.target.value)}
+                                  onBlur={() => setEditingReminderId(null)}
+                                  autoFocus
+                                  className="px-2 py-1 border rounded"
+                                >
+                                  {reminderOptions.map(opt => (
+                                    <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                  ))}
+                                  <option value="custom">Custom...</option>
+                                </select>
+                              ) : (
+                                <span onClick={() => setEditingReminderId(session.id)} className="cursor-pointer">
+                                  {reminderOptions.find(opt => opt.id === session.reminder)?.label || (session.reminder && session.reminder.startsWith('custom:') ? `${session.reminder.split(':')[1]} minutes before` : 'None')}
+                                </span>
+                              )}
                             </div>
                           </div>
                           

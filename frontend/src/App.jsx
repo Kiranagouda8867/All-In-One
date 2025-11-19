@@ -6,6 +6,7 @@ import Sidebar from './components/layout/sidebar';
 import Dashboard from './pages/dashboard';
 import Pomodoro from './pages/pomodoro';
 import Notes from './pages/notes';
+import NoteView from './pages/note-view';
 import Habits from './pages/habits';
 import AIAssistant from './pages/ai-assistant';
 import MoodChecker from './pages/mood-checker';
@@ -26,7 +27,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* default entry: send users to login first (they can register from there) */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
             {/* App shell routes (no auth) */}
             <Route
@@ -50,6 +52,7 @@ function App() {
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/pomodoro" element={<Pomodoro />} />
                         <Route path="/notes" element={<Notes />} />
+                        <Route path="/notes/:id" element={<NoteView />} />
                         <Route path="/habits" element={<Habits />} />
                         <Route path="/ai-assistant" element={<AIAssistant />} />
                         <Route path="/mood-checker" element={<MoodChecker />} />
