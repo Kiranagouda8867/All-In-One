@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { API } from '../utils/api';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -15,10 +16,10 @@ const Register = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const API_BASE = 'http://localhost:5000/api/auth';
+  const AUTH_API = `${API}/auth`;
 
   const login = async (email, password) => {
-    const res = await fetch(`${API_BASE}/login`, {
+    const res = await fetch(`${AUTH_API}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -51,7 +52,7 @@ const Register = () => {
       setError('');
       setLoading(true);
       // call backend register
-      const res = await fetch(`${API_BASE}/register`, {
+      const res = await fetch(`${AUTH_API}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),

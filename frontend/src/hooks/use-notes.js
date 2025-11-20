@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { API } from "../utils/api";
 
 export const useNotes = () => {
-  const API_URL = "http://localhost:5000/api/notes";
+  const API_URL = `${API}/notes`;
   const userId = "guest";
 
   const [notes, setNotes] = useState([]);
@@ -10,14 +11,24 @@ export const useNotes = () => {
   const [editingNote, setEditingNote] = useState(null);
 
   // Load notes from backend
+  // Load notes from backend and poll periodically for near-realtime updates
   useEffect(() => {
-    axios
-      .get(`${API_URL}?userId=${userId}`)
-      .then((res) => {
-        setNotes(res.data);
-        setLoading(false);
-      })
-      .catch((err) => console.error(err));
+    let cancelled = false;
+    const fetchNotes = async () => {
+      try {
+        const res = await axios.get(`${API_URL}?userId=${userId}`);
+        if (!cancelled) {
+          setNotes(res.data);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchNotes();
+    const iv = setInterval(fetchNotes, 30 * 1000); // poll every 30s
+    return () => { cancelled = true; clearInterval(iv); };
   }, []);
 
   // Save note: create or update depending on presence of _id

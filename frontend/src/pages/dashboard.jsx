@@ -8,6 +8,8 @@ import { moodData } from '../utils/mood-data';
 import { careerPaths } from '../utils/career-data';
 import { Link } from 'react-router-dom';
 import useSessions from '../hooks/use-sessions';
+import { useHabits } from '../hooks/use-habits';
+import { useNotes } from '../hooks/use-notes';
 
 // Render the next up to 3 upcoming sessions from DB
 const StudySessionsList = () => {
@@ -61,6 +63,34 @@ const StudySessionsList = () => {
 };
 
 const Dashboard = () => {
+  const { sessions } = useSessions();
+  const { habits } = useHabits();
+  const { notes } = useNotes();
+
+  const now = new Date();
+  const day = now.getDay(); // 0 = Sunday
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day, 0, 0, 0, 0);
+
+  const minutesThisWeek = (sessions || [])
+    .filter(s => s.startTime && new Date(s.startTime) >= weekStart && s.completed)
+    .reduce((sum, s) => sum + (s.duration || 0), 0);
+
+  const weeklyStudyGoal = 300; // default weekly goal in minutes (5 hours)
+  const studyPercent = Math.min(100, Math.round((minutesThisWeek / weeklyStudyGoal) * 100));
+
+  const habitsCompletedThisWeek = (habits || []).filter(h => h.lastCompleted && new Date(h.lastCompleted) >= weekStart).length;
+  const habitPercent = (habits && habits.length) ? Math.min(100, Math.round((habitsCompletedThisWeek / habits.length) * 100)) : 0;
+
+  const notesThisWeek = (notes || []).filter(n => (n.createdAt && new Date(n.createdAt) >= weekStart) || (n.created_at && new Date(n.created_at) >= weekStart)).length;
+  const weeklyNotesGoal = 7; // default notes goal
+  const notesPercent = Math.min(100, Math.round((notesThisWeek / weeklyNotesGoal) * 100));
+
+  const minutesToHM = (minutes) => {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <motion.div
@@ -74,6 +104,12 @@ const Dashboard = () => {
       </motion.div>
 
       <StatsGrid />
+
+      {/* Weekly metrics computed from hooks for realtime-ish progress */}
+      {/* derive weekly stats below so progress bars update when underlying hooks change */}
+      
+      {/* compute weekly metrics */}
+      
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column */}
@@ -97,31 +133,34 @@ const Dashboard = () => {
                   <div>
                     <div className="flex justify-between mb-1">
                       <span className="text-sm font-medium text-gray-700">Study Goal</span>
-                      <span className="text-sm font-medium text-gray-700">75%</span>
+                      <span className="text-sm font-medium text-gray-700">{studyPercent}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2.5 rounded-full" style={{ width: '75%' }}></div>
+                      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2.5 rounded-full" style={{ width: `${studyPercent}%` }}></div>
                     </div>
+                    <div className="text-xs text-gray-500 mt-1">{minutesToHM(minutesThisWeek)} of {minutesToHM(weeklyStudyGoal)}</div>
                   </div>
                   
                   <div>
                     <div className="flex justify-between mb-1">
                       <span className="text-sm font-medium text-gray-700">Habit Completion</span>
-                      <span className="text-sm font-medium text-gray-700">60%</span>
+                      <span className="text-sm font-medium text-gray-700">{habitPercent}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2.5 rounded-full" style={{ width: '60%' }}></div>
+                      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 h-2.5 rounded-full" style={{ width: `${habitPercent}%` }}></div>
                     </div>
+                    <div className="text-xs text-gray-500 mt-1">{habitsCompletedThisWeek}/{(habits || []).length} habits completed this week</div>
                   </div>
                   
                   <div>
                     <div className="flex justify-between mb-1">
                       <span className="text-sm font-medium text-gray-700">Notes Created</span>
-                      <span className="text-sm font-medium text-gray-700">90%</span>
+                      <span className="text-sm font-medium text-gray-700">{notesPercent}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div className="bg-gradient-to-r from-amber-500 to-orange-600 h-2.5 rounded-full" style={{ width: '90%' }}></div>
+                      <div className="bg-gradient-to-r from-amber-500 to-orange-600 h-2.5 rounded-full" style={{ width: `${notesPercent}%` }}></div>
                     </div>
+                    <div className="text-xs text-gray-500 mt-1">{notesThisWeek} notes this week</div>
                   </div>
                 </div>
               </Card.Content>

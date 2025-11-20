@@ -4,6 +4,7 @@ import Card from '../components/ui/card';
 import Button from '../components/ui/button';
 import { useNotes } from '../hooks/use-notes';
 import { ArrowLeft } from 'lucide-react';
+import { API_BASE } from '../utils/api';
 
 const NoteView = () => {
   const { id } = useParams();
@@ -22,7 +23,7 @@ const NoteView = () => {
     </div>
   );
 
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const base = API_BASE;
   const resolveUrl = (a) => {
     if (!a || !a.url) return '';
     if (a.url.startsWith('http')) return a.url;

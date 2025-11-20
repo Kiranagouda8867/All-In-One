@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { subjectSuggestions, subjectCategories } from '../utils/subject-data';
 import Card from '../components/ui/card';
 import Button from '../components/ui/button';
+import API from '../utils/api';
 import { Star, BookOpen, Target, TrendingUp, Plus, Trash2 } from 'lucide-react';
 
 const SubjectAnalyzer = () => {
@@ -10,61 +11,156 @@ const SubjectAnalyzer = () => {
   const [newSubject, setNewSubject] = useState({ name: '', category: '', rating: 3 });
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState(null);
+  const [error, setError] = useState('');
 
   // Load subjects from localStorage on mount
   useEffect(() => {
-    const savedSubjects = localStorage.getItem('subject-analyzer-subjects');
-    if (savedSubjects) {
-      try {
-        setSubjects(JSON.parse(savedSubjects));
-      } catch (e) {
-        console.error('Failed to parse subjects from localStorage', e);
+    const token = localStorage.getItem('token');
+    const loadLocal = async () => {
+      const savedSubjects = localStorage.getItem('subject-analyzer-subjects');
+      if (savedSubjects) {
+        try {
+          setSubjects(JSON.parse(savedSubjects));
+        } catch (e) {
+          console.error('Failed to parse subjects from localStorage', e);
+        }
+      } else {
+        // Initialize with mock data
+        setSubjects([
+          { id: 1, name: 'Calculus', category: 'mathematics', rating: 2 },
+          { id: 2, name: 'Physics', category: 'science', rating: 4 },
+          { id: 3, name: 'English Literature', category: 'language', rating: 3 }
+        ]);
       }
+    };
+
+    const loadRemote = async () => {
+      try {
+        const res = await fetch(`${API}/subjects`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw body;
+        }
+        const data = await res.json();
+        // map backend subjects to frontend shape
+        const mapped = data.map(s => ({ id: s._id, name: s.name, category: s.category, rating: s.rating || 3, comment: s.comment }));
+        setSubjects(mapped);
+      } catch (err) {
+        console.error('Failed to load remote subjects, falling back to local', err);
+        const msg = (err && (err.message || err.error || err.msg)) || 'Failed to load subjects from server';
+        setError(String(msg));
+        await loadLocal();
+      }
+    };
+
+    if (token) {
+      loadRemote();
     } else {
-      // Initialize with mock data
-      setSubjects([
-        { id: 1, name: 'Calculus', category: 'mathematics', rating: 2 },
-        { id: 2, name: 'Physics', category: 'science', rating: 4 },
-        { id: 3, name: 'English Literature', category: 'language', rating: 3 }
-      ]);
+      loadLocal();
     }
   }, []);
 
-  // Save subjects to localStorage whenever they change
+  // Save subjects to localStorage whenever they change (only when not using backend auth)
   useEffect(() => {
-    localStorage.setItem('subject-analyzer-subjects', JSON.stringify(subjects));
+    const token = localStorage.getItem('token');
+    if (!token) {
+      localStorage.setItem('subject-analyzer-subjects', JSON.stringify(subjects));
+    }
   }, [subjects]);
 
   const handleAddSubject = () => {
     if (!newSubject.name || !newSubject.category) return;
-    
-    const subject = {
-      id: Date.now(),
-      name: newSubject.name,
-      category: newSubject.category,
-      rating: newSubject.rating
-    };
-    
-    setSubjects([...subjects, subject]);
-    setNewSubject({ name: '', category: '', rating: 3 });
-    setShowAddForm(false);
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      const subject = {
+        id: Date.now(),
+        name: newSubject.name,
+        category: newSubject.category,
+        rating: newSubject.rating
+      };
+      setSubjects([...subjects, subject]);
+      setNewSubject({ name: '', category: '', rating: 3 });
+      setShowAddForm(false);
+      return;
+    }
+
+    // create on backend
+    (async () => {
+      try {
+        setError('');
+        const res = await fetch(`${API}/subjects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name: newSubject.name, category: newSubject.category, rating: newSubject.rating })
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw body;
+        }
+        const data = await res.json();
+        const mapped = { id: data._id, name: data.name, category: data.category, rating: data.rating || 3 };
+        setSubjects(prev => [...prev, mapped]);
+        setNewSubject({ name: '', category: '', rating: 3 });
+        setShowAddForm(false);
+      } catch (err) {
+        console.error('Failed to add subject', err);
+        const msg = (err && (err.message || err.error || err.msg)) || 'Failed to add subject';
+        setError(String(msg));
+      }
+    })();
   };
 
   const handleDeleteSubject = (id) => {
-    setSubjects(subjects.filter(subject => subject.id !== id));
-    if (selectedSubject && selectedSubject.id === id) {
-      setSelectedSubject(null);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setSubjects(subjects.filter(subject => subject.id !== id));
+      if (selectedSubject && selectedSubject.id === id) setSelectedSubject(null);
+      return;
     }
+
+    (async () => {
+      try {
+        const res = await fetch(`${API}/subjects/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw await res.json();
+        setSubjects(subjects.filter(subject => subject.id !== id));
+        if (selectedSubject && selectedSubject.id === id) setSelectedSubject(null);
+      } catch (err) {
+        console.error('Failed to delete subject', err);
+      }
+    })();
   };
 
   const handleRatingChange = (id, rating) => {
-    setSubjects(subjects.map(subject => 
-      subject.id === id ? { ...subject, rating } : subject
-    ));
-    
+    const token = localStorage.getItem('token');
+    setSubjects(subjects.map(subject => subject.id === id ? { ...subject, rating } : subject));
     if (selectedSubject && selectedSubject.id === id) {
       setSelectedSubject({ ...selectedSubject, rating });
     }
+
+    if (!token) return;
+
+    // persist rating change
+    (async () => {
+      try {
+        const res = await fetch(`${API}/subjects/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ rating })
+        });
+        if (!res.ok) throw await res.json();
+        const data = await res.json();
+        // update local state with any returned authoritative values
+        setSubjects(prev => prev.map(s => s.id === id ? { id: data._id, name: data.name, category: data.category, rating: data.rating || rating } : s));
+      } catch (err) {
+        console.error('Failed to persist rating change', err);
+      }
+    })();
   };
 
   const getCategoryInfo = (categoryId) => {

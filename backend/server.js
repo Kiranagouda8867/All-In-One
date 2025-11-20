@@ -6,6 +6,7 @@ import habitRoutes from "./routes/habitRoutes.js";
 import noteRoutes from "./routes/noteRoutes.js";
 import sessionRoutes from "./routes/sessionRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import subjectRoutes from "./routes/subjectRoutes.js";
 import path from "path";
 import fs from "fs";
 
@@ -36,7 +37,7 @@ app.use("/api/habits", habitRoutes);
 app.use("/api/notes", noteRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/auth", authRoutes);
-
+app.use("/api/subjects", subjectRoutes);
 // Server-Sent Events endpoint for sessions real-time updates
 app.locals.sseClients = [];
 app.get('/api/sessions/stream', (req, res) => {

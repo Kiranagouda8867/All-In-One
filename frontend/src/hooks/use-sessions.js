@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { reminderOptions } from '../utils/study-session-data';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_BASE } from '../utils/api';
 
 export function useSessions() {
   const [sessions, setSessions] = useState([]);

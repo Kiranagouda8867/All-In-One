@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { BookOpen, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { API } from '../utils/api';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -12,10 +11,10 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const API_BASE = 'http://localhost:5000/api/auth';
+  const AUTH_API = `${API}/auth`;
 
   const login = async (email, password) => {
-    const res = await fetch(`${API_BASE}/login`, {
+    const res = await fetch(`${AUTH_API}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -23,6 +22,17 @@ const Login = () => {
 
     const data = await res.json();
     if (!res.ok) throw data;
+    // Persist token + user for other pages to call protected APIs
+    try {
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
+    } catch (e) {
+      // ignore storage errors
+    }
     return data;
   };
   const navigate = useNavigate();
@@ -52,7 +62,7 @@ const Login = () => {
           // derive a simple name from email
           const name = email.split('@')[0] || email;
           try {
-            const res = await fetch(`${API_BASE}/register`, {
+            const res = await fetch(`${AUTH_API}/register`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name, email, password }),

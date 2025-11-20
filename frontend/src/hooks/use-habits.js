@@ -1,20 +1,30 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { API } from "../utils/api";
 
 export const useHabits = () => {
-  const API_URL = "http://localhost:5000/api/habits";
+  const API_URL = `${API}/habits`;
   const userId = "guest";
 
   const [habits, setHabits] = useState([]);
   const [togglingIds, setTogglingIds] = useState([]);
   const [editingHabit, setEditingHabit] = useState(null);
 
-  // Load habits from backend
+  // Load habits from backend and poll periodically for near-realtime updates
   useEffect(() => {
-    axios
-      .get(`${API_URL}?userId=${userId}`)
-      .then((res) => setHabits(res.data))
-      .catch((err) => console.error(err));
+    let cancelled = false;
+    const fetchHabits = async () => {
+      try {
+        const res = await axios.get(`${API_URL}?userId=${userId}`);
+        if (!cancelled) setHabits(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchHabits();
+    const iv = setInterval(fetchHabits, 30 * 1000); // poll every 30s
+    return () => { cancelled = true; clearInterval(iv); };
   }, []);
 
   // Add or update habit

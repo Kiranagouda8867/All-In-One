@@ -8,7 +8,8 @@ export const protect = (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = decoded;
+    // Keep existing controllers' expectation of req.user._id
+    req.user = { _id: decoded.id, email: decoded.email };
     next();
   } catch (err) {
     res.status(401).json({ message: "Invalid token" });

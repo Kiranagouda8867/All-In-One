@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import Card from '../ui/card';
 import Button from '../ui/button';
 import { Edit2, Trash2, MoreVertical } from 'lucide-react';
+import { API_BASE } from '../../utils/api';
 
 const NoteCard = ({ note, onEdit, onDelete }) => {
   const [showActions, setShowActions] = useState(false);
@@ -67,7 +68,7 @@ const NoteCard = ({ note, onEdit, onDelete }) => {
             ))}
           </div>
           {note.attachments && note.attachments.length > 0 && (() => {
-            const base = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const base = API_BASE;
             const resolveUrl = (a) => {
               if (!a || !a.url) return '';
               if (a.url.startsWith('http')) return a.url;
